@@ -1,3 +1,4 @@
+tensorflow
 streamlit>=1.0.0
 pandas>=1.3.0
 numpy>=1.21.0
@@ -8,4 +9,3 @@ plotly>=5.3.1
 # Since you used tf.lite.Interpreter, we will include a version of TensorFlow.
 # NOTE: Deploying TensorFlow on Streamlit Cloud can be heavy.
 # If you used a specific lightweight package for TFLite, use that instead.
-tensorflow>=2.7.0 
