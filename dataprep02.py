@@ -10,8 +10,10 @@ import json
 import os
 
 # --- PATH CONFIG ---
-# Assuming 'processed_data' folder was created by dataprep01.py inside ml_scripts
-PROCESSED_DATA_FILE = 'C:/Users/renbou/Desktop/Most of the Good Stuff/projects/financial tracker stuff/processed_training_data.csv'
+# Assuming 'processed_data' folder was created by dataprep01.py in the same directory
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROCESSED_DATA_DIR = os.path.join(SCRIPT_DIR, 'processed_data')
+PROCESSED_DATA_FILE = os.path.join(PROCESSED_DATA_DIR, 'processed_training_data.csv')
 MODEL_NAME = 'expense_category_model.tflite'
 TOKENIZER_CONFIG_NAME = 'tokenizer_config.json'
 
@@ -53,7 +55,7 @@ def train_and_convert_model():
         'oov_token_id': tokenizer.word_index.get(tokenizer.oov_token)
     }
     
-    config_filepath = os.path.join('processed_data', TOKENIZER_CONFIG_NAME)
+    config_filepath = os.path.join(PROCESSED_DATA_DIR, TOKENIZER_CONFIG_NAME)
     with open(config_filepath, 'w') as f:
         json.dump(tokenizer_config, f, indent=4)
     print(f"Saved tokenizer configuration to {config_filepath}")
@@ -94,7 +96,7 @@ def train_and_convert_model():
     tflite_model = converter.convert()
 
     # Save the TFLite model file
-    tflite_filepath = os.path.join('processed_data', MODEL_NAME)
+    tflite_filepath = os.path.join(PROCESSED_DATA_DIR, MODEL_NAME)
     with open(tflite_filepath, 'wb') as f:
         f.write(tflite_model)
         

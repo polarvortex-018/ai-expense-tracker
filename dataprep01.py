@@ -5,14 +5,16 @@ import json
 import os
 
 # --- CONFIGURE THESE LINES BASED ON YOUR DATA ---
-# 1. Path to your source CSV file
-DATA_FILE = 'C://Users//renbou//Desktop//Most of the Good Stuff//projects//financial tracker stuff//expenses.csv'  
+# 1. Path to your source CSV file (relative to this script or absolute)
+# Update this path to point to your actual expenses.csv file
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE = os.path.join(SCRIPT_DIR, 'expenses.csv')  # Place expenses.csv in the same directory
 # 2. Name of the column containing the purchase description/text input
 TEXT_COLUMN = 'name'                         
 # 3. Name of the column containing the high-level category (the label)
 CATEGORY_COLUMN = 'category'                 
 # 4. Folder where output files will be saved
-OUTPUT_DIR = 'C://Users//renbou//Desktop//Most of the Good Stuff//projects//financial tracker stuff'
+OUTPUT_DIR = os.path.join(SCRIPT_DIR, 'processed_data')
 # ---------------------------------------------
 
 

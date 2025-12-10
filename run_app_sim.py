@@ -96,7 +96,24 @@ def predict_expense(raw_input, interpreter, config, category_map):
     predicted_category = category_map.get(predicted_id, "Unknown")
     
     # 5. Determine Income/Expense
-    is_income = predicted_category.lower() in ['salary', 'income', 'deposit']
+    # Check both the predicted category AND keywords in the raw input
+    # This allows income detection even though the model doesn't have income categories
+    
+    # Keywords that indicate income in the raw input
+    income_keywords = ['salary', 'commission', 'income', 'deposit', 'refund', 
+                       'bonus', 'payment received', 'freelance', 'consulting',
+                       'dividend', 'interest', 'cashback', 'reimbursement']
+    
+    # Check if any income keyword is in the raw input (case-insensitive)
+    raw_input_lower = raw_input.lower()
+    keyword_match = any(keyword in raw_input_lower for keyword in income_keywords)
+    
+    # Income categories from the model (currently none, but kept for future use)
+    income_categories = []  # Add income category names here when model is retrained
+    category_match = predicted_category in income_categories
+    
+    # Mark as income if either keyword matches OR category matches
+    is_income = keyword_match or category_match
     
     return predicted_category, amount, is_income, confidence
 

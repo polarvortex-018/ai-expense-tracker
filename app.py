@@ -13,15 +13,20 @@ from datetime import datetime, date
 import math
 
 # Color + icon styles for categories (beige & lavender friendly palette)
+# These match the actual categories from the trained ML model
 CATEGORY_STYLES = {
-    "Food": {"color": "#BFA5A0", "icon": "🍽️"},
-    "Transport": {"color": "#C8B6F6", "icon": "🚌"},
-    "Shopping": {"color": "#E6D5FA", "icon": "🛍️"},
-    "Salary": {"color": "#D9E6D9", "icon": "💼"},
+    "Education": {"color": "#A8D8EA", "icon": "📚"},
     "Entertainment": {"color": "#F6D6E8", "icon": "🎮"},
-    "Bills": {"color": "#F0E1C8", "icon": "💡"},
-    "Health": {"color": "#FBE7C6", "icon": "💊"},
-    "Other": {"color": "#E8DFF5", "icon": "🔖"},
+    "Essentials": {"color": "#C8E6C9", "icon": "🛒"},
+    "Food (Friends)": {"color": "#FFCCBC", "icon": "🍽️"},
+    "Food (Self)": {"color": "#BFA5A0", "icon": "🍔"},
+    "Food (Snacks)": {"color": "#FFE0B2", "icon": "🍿"},
+    "Gifts": {"color": "#F8BBD0", "icon": "🎁"},
+    "Luxuries": {"color": "#E1BEE7", "icon": "💎"},
+    "Miscellaneous (Others)": {"color": "#E8DFF5", "icon": "🔖"},
+    "Miscellaneous (Self)": {"color": "#D1C4E9", "icon": "📦"},
+    "Petrol": {"color": "#C8B6F6", "icon": "⛽"},
+    "Rent": {"color": "#F0E1C8", "icon": "🏠"},
 }
 
 def get_month_str(dt):
@@ -38,8 +43,23 @@ def get_month_str(dt):
 
 
 # --- Global Initialization ---
-# Load assets once at the start
-INTERPRETER, CONFIG, CATEGORY_MAP = load_ai_assets()
+# Load assets once at the start with error handling
+try:
+    INTERPRETER, CONFIG, CATEGORY_MAP = load_ai_assets()
+    AI_LOADED = True
+except Exception as e:
+    st.error(f"""
+    ⚠️ **AI Model Not Loaded**
+    
+    Could not load AI assets. Please ensure:
+    1. You have run `dataprep01.py` to prepare your data
+    2. You have run `dataprep02.py` to train the model
+    3. The `processed_data` folder contains all required files
+    
+    Error details: {str(e)}
+    """)
+    INTERPRETER, CONFIG, CATEGORY_MAP = None, None, None
+    AI_LOADED = False
 
 # --- HELPER FUNCTION: Maps DB results to DataFrame (useful for Streamlit) ---
 COLUMN_NAMES = [
@@ -50,7 +70,7 @@ def load_data():
     data = get_all_transactions()
     df = pd.DataFrame(data, columns=COLUMN_NAMES)
     df['Is Income'] = df['Is Income'].apply(lambda x: 'Income' if x == 1 else 'Expense')
-    df['Amount'] = df['Amount'].apply(lambda x: f"INR {x:.2f}")
+    # Keep amounts as floats for editing, format only for display where needed
     return df
 
 # === UI COMPONENTS ===
@@ -105,11 +125,8 @@ def show_overview_and_balance():
     if type_filter != "All":
         filtered_df = filtered_df[filtered_df["Is Income"] == type_filter]
 
-    # Ensure Amount numeric
-    if filtered_df['Amount'].dtype == 'object':
-        filtered_df['Amount_Numeric'] = filtered_df['Amount'].astype(str).str.replace('INR', '', regex=False).str.strip().astype(float)
-    else:
-        filtered_df['Amount_Numeric'] = filtered_df['Amount']
+    # Ensure Amount numeric (amounts are now stored as floats)
+    filtered_df['Amount_Numeric'] = filtered_df['Amount'].astype(float)
 
     total_income = filtered_df[filtered_df['Is Income'] == 'Income']["Amount_Numeric"].sum()
     total_expense = filtered_df[filtered_df['Is Income'] == 'Expense']["Amount_Numeric"].sum()
@@ -132,7 +149,10 @@ def show_overview_and_balance():
         grouped = filtered_df.groupby("Is Income").agg(count=("ID", "count"), total=("Amount_Numeric", "sum")).reset_index()
         st.table(grouped)
 
-    st.dataframe(filtered_df.drop(columns=['Amount_Numeric']), use_container_width=True)
+    # Format amounts for display
+    display_df = filtered_df.drop(columns=['Amount_Numeric']).copy()
+    display_df['Amount'] = display_df['Amount'].apply(lambda x: f"INR {x:.2f}")
+    st.dataframe(display_df, use_container_width=True)
     st.caption("Tip: Use the filters on the left to narrow down months, date ranges, category or type.")
 
 
@@ -157,23 +177,27 @@ def show_input_interface():
 
     # Run AI to generate preview when Enter is pressed
     if submitted and raw_input:
-        category, amount, is_income, confidence = predict_expense(
-            raw_input, INTERPRETER, CONFIG, CATEGORY_MAP
-        )
-        if amount == 0.0:
-            st.error("Failed to extract amount. Use format: [Amount][Currency][Description]")
+        if not AI_LOADED:
+            st.error("AI model is not available. Please check the error message at the top of the page.")
             st.session_state['preview'] = None
         else:
-            st.session_state['preview'] = {
-                'raw_input': raw_input,
-                'amount': amount,
-                'currency': 'INR',
-                'category': category,
-                'is_income': is_income,
-                'confidence': confidence
-            }
-            # Keep current input in session_state so field remains populated
-            st.session_state['raw_input_val'] = raw_input
+            category, amount, is_income, confidence = predict_expense(
+                raw_input, INTERPRETER, CONFIG, CATEGORY_MAP
+            )
+            if amount == 0.0:
+                st.error("Failed to extract amount. Use format: [Amount][Currency][Description]")
+                st.session_state['preview'] = None
+            else:
+                st.session_state['preview'] = {
+                    'raw_input': raw_input,
+                    'amount': amount,
+                    'currency': 'INR',
+                    'category': category,
+                    'is_income': is_income,
+                    'confidence': confidence
+                }
+                # Keep current input in session_state so field remains populated
+                st.session_state['raw_input_val'] = raw_input
 
     # Show AI preview card if available
     if st.session_state['preview']:
@@ -203,7 +227,7 @@ def show_input_interface():
 
             # Reset preview and input field for next entry
             st.session_state['preview'] = None
-            st.session_state.raw_input = None
+            st.session_state['raw_input_val'] = ""
             time.sleep(2)
             # Rerun to refresh the form and dashboard
             st.rerun()
@@ -387,6 +411,10 @@ def show_data_management():
                     
                     # Check the RAW INPUT CHANGE requirement
                     if raw_input_changed:
+                        if not AI_LOADED:
+                            st.error(f"Cannot re-categorize Row {tx_id}: AI model not available")
+                            continue
+                            
                         st.warning(f"Re-categorizing Row {tx_id} due to Raw Input change: '{row['Raw Input']}'")
                         
                         # RERUN AI PARSING ON NEW RAW INPUT
@@ -403,7 +431,13 @@ def show_data_management():
                         # Note: Currency is hardcoded to INR for simplicity
 
                     # If the row was modified in ANY way (or re-parsed)
-                    if not row.equals(original_row) or raw_input_changed:
+                    # Use element-wise comparison to avoid dtype issues
+                    row_changed = any(
+                        row[col] != original_row[col] 
+                        for col in row.index 
+                        if col in original_row.index and not pd.isna(row[col]) and not pd.isna(original_row[col])
+                    )
+                    if row_changed or raw_input_changed:
                         
                         new_data = {
                             'description': row['Description'],
@@ -418,6 +452,10 @@ def show_data_management():
 
                 # 3. Handle NEW rows added by the user in the editor
                 elif is_new_row and row['Raw Input']:
+                    if not AI_LOADED:
+                        st.error("Cannot add new transaction: AI model not available")
+                        continue
+                        
                     # We treat a new row as a regular ADD operation, and run the AI
                     category, amount, is_income, confidence = predict_expense(
                         row['Raw Input'], INTERPRETER, CONFIG, CATEGORY_MAP
@@ -446,16 +484,7 @@ def show_data_management():
             st.error(f"An error occurred during sync: {e}")
             st.json(json.loads(original_df.to_json())) # Debugging output
 
-# NOTE: The helper load_data() function in app.py must be changed to preserve number types:
 
-# app.py (Modified load_data helper function)
-def load_data():
-    data = get_all_transactions()
-    df = pd.DataFrame(data, columns=COLUMN_NAMES)
-    df['Is Income'] = df['Is Income'].apply(lambda x: 'Income' if x == 1 else 'Expense')
-    # FIX: Do NOT format the amount yet, leave it as float for editing
-    # df['Amount'] = df['Amount'].apply(lambda x: f"INR {x:.2f}") 
-    return df
 def main_app():
     st.title("AI Finance Tracker")
 
